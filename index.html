@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>H₂ SKY DASH — 水素ジェット飛行ゲーム</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background: #061326;
+      color: #f0f8ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .game-wrapper {
+      position: relative;
+      width: 100vw;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
+      max-height: 100vh;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 180, 255, 0.25), 0 0 0 1px rgba(100, 220, 255, 0.2);
+      background: #0b2447;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .hud {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      gap: 12px;
+    }
+
+    .hud-card {
+      background: rgba(8, 22, 48, 0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(110, 220, 255, 0.3);
+      border-radius: 12px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #7dd3fc;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+    }
+
+    .fuel-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 160px;
+    }
+
+    .fuel-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      color: #7dd3fc;
+    }
+
+    .fuel-bar-bg {
+      width: 100%;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .fuel-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #0ea5e9, #38bdf8, #67e8f9);
+      border-radius: 999px;
+      transition: width 0.08s linear;
+    }
+
+    .fuel-bar-fill.low {
+      background: linear-gradient(90deg, #ef4444, #f97316);
+    }
+
+    .controls-top-right {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      background: rgba(8, 22, 48, 0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(110, 220, 255, 0.3);
+      color: #e0f2fe;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.15s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(14, 165, 233, 0.35);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, rgba(10, 30, 66, 0.72), rgba(4, 12, 28, 0.9));
+      backdrop-filter: blur(6px);
+      text-align: center;
+      padding: 24px;
+      transition: opacity 0.25s ease;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.18);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: #7dd3fc;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      background: linear-gradient(135deg, #ffffff 0%, #7dd3fc 50%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: #bae6fd;
+      max-width: 520px;
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .legend-item {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 36px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.45);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .start-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 34px rgba(56, 189, 248, 0.6);
+    }
+
+    .start-btn:active {
+      transform: translateY(1px);
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .final-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+      width: 100%;
+      max-width: 460px;
+    }
+
+    .final-stat-box {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(125, 211, 252, 0.25);
+      border-radius: 12px;
+      padding: 12px 8px;
+    }
+
+    .final-stat-box .val {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .final-stat-box .lbl {
+      font-size: 11px;
+      color: #7dd3fc;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+    <div class="hud">
+      <div class="hud-card">
+        <div class="stat">
+          <span class="stat-label">SCORE</span>
+          <span class="stat-value" id="scoreEl">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">DISTANCE</span>
+          <span class="stat-value" id="distEl">0.0 km</span>
+        </div>
+        <div class="fuel-box">
+          <div class="fuel-header">
+            <span>H₂ タンク</span>
+            <span id="fuelPctEl">100%</span>
+          </div>
+          <div class="fuel-bar-bg">
+            <div class="fuel-bar-fill" id="fuelBarEl"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-top-right">
+        <button class="icon-btn" id="muteBtn" title="サウンド切替">🔊 ON</button>
+      </div>
+    </div>
+
+    <!-- Title Overlay -->
+    <div class="overlay" id="startOverlay">
+      <div class="badge">ZERO EMISSION FLIGHT</div>
+      <h1>H₂ SKY DASH</h1>
+      <p class="subtitle">
+        水素燃料ジェットで空を駆け抜けよう！<br />
+        <strong>H₂分子</strong>を集めて燃料を補給し、<strong>燃料電池リング</strong>でクリーンなH₂Oブーストを発動！
+      </p>
+      <div class="legend">
+        <div class="legend-item"><span class="dot" style="background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></span> H₂分子（燃料回復 +100pt）</div>
+        <div class="legend-item"><span class="dot" style="background:#34d399; box-shadow:0 0 8px #34d399;"></span> 燃料電池リング（H₂Oブースト）</div>
+        <div class="legend-item"><span class="dot" style="background:#475569; box-shadow:0 0 8px #94a3b8;"></span> CO₂雲・雷雲（回避！）</div>
+      </div>
+      <button class="start-btn" id="startBtn">フライト開始</button>
+      <div class="hint">操作: スペースキー / クリック / タッチ長押しで上昇、離すと下降（↑↓ / W S も対応）</div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div class="overlay hidden" id="gameOverOverlay">
+      <div class="badge" id="gameOverReason">FLIGHT COMPLETE</div>
+      <h1>H₂ SKY DASH</h1>
+      <div class="final-stats">
+        <div class="final-stat-box">
+          <div class="val" id="finalScore">0</div>
+          <div class="lbl">スコア</div>
+        </div>
+        <div class="final-stat-box">
+          <div class="val" id="finalDist">0.0 km</div>
+          <div class="lbl">飛行距離</div>
+        </div>
+        <div class="final-stat-box">
+          <div class="val" id="finalBest">0</div>
+          <div class="lbl">ハイスコア</div>
+        </div>
+      </div>
+      <button class="start-btn" id="restartBtn">もう一度飛ぶ</button>
+      <div class="hint">スペースキーでもリスタートできます</div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const scoreEl = document.getElementById("scoreEl");
+      const distEl = document.getElementById("distEl");
+      const fuelPctEl = document.getElementById("fuelPctEl");
+      const fuelBarEl = document.getElementById("fuelBarEl");
+      const muteBtn = document.getElementById("muteBtn");
+
+      const startOverlay = document.getElementById("startOverlay");
+      const gameOverOverlay = document.getElementById("gameOverOverlay");
+      const startBtn = document.getElementById("startBtn");
+      const restartBtn = document.getElementById("restartBtn");
+      const finalScoreEl = document.getElementById("finalScore");
+      const finalDistEl = document.getElementById("finalDist");
+      const finalBestEl = document.getElementById("finalBest");
+      const gameOverReasonEl = document.getElementById("gameOverReason");
+
+      const W = canvas.width;
+      const H = canvas.height;
+
+      // Web Audio API Synthesizer
+      let audioCtx = null;
+      let isMuted = false;
+
+      function ensureAudio() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+      }
+
+      function playTone(freq, type, duration, gainVal = 0.12, slideTo = null) {
+        if (isMuted || !audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        if (slideTo) {
+          osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+        }
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      }
+
+      muteBtn.addEventListener("click", () => {
+        isMuted = !isMuted;
+        muteBtn.textContent = isMuted ? "🔇 OFF" : "🔊 ON";
+      });
+
+      // Game State
+      let state = "TITLE"; // TITLE, PLAYING, GAMEOVER
+      let score = 0;
+      let distance = 0;
+      let fuel = 100;
+      let speed = 5.2;
+      let boostTimer = 0;
+      let shakeTimer = 0;
+      let frameCount = 0;
+      let highScore = Number(localStorage.getItem("h2_sky_dash_best") || 0);
+
+      const player = {
+        x: 150,
+        y: H / 2,
+        vy: 0,
+        radius: 18,
+        angle: 0,
+        thrusting: false,
+        downKey: false
+      };
+
+      let items = [];       // H2 molecules & Fuel Cell Rings
+      let obstacles = [];   // CO2 clouds & Thunderclouds
+      let particles = [];   // Exhaust, water vapor, sparkles
+      let bgClouds = [];    // Parallax background clouds
+      let stars = [];       // High-altitude stars
+
+      function initBackground() {
+        bgClouds = Array.from({ length: 10 }, () => ({
+          x: Math.random() * W,
+          y: Math.random() * (H - 80) + 40,
+          w: 80 + Math.random() * 120,
+          h: 28 + Math.random() * 24,
+          speed: 0.5 + Math.random() * 1.2,
+          alpha: 0.08 + Math.random() * 0.12
+        }));
+        stars = Array.from({ length: 45 }, () => ({
+          x: Math.random() * W,
+          y: Math.random() * H * 0.7,
+          r: 0.8 + Math.random() * 1.6,
+          twinkle: Math.random() * Math.PI * 2
+        }));
+      }
+
+      function resetGame() {
+        score = 0;
+        distance = 0;
+        fuel = 100;
+        speed = 5.2;
+        boostTimer = 0;
+        shakeTimer = 0;
+        frameCount = 0;
+        player.y = H / 2;
+        player.vy = 0;
+        player.angle = 0;
+        items = [];
+        obstacles = [];
+        particles = [];
+        updateHUD();
+      }
+
+      function startGame() {
+        ensureAudio();
+        resetGame();
+        state = "PLAYING";
+        startOverlay.classList.add("hidden");
+        gameOverOverlay.classList.add("hidden");
+        playTone(440, "sine", 0.2, 0.12, 880);
+      }
+
+      function endGame(reason) {
+        state = "GAMEOVER";
+        if (score > highScore) {
+          highScore = Math.floor(score);
+          localStorage.setItem("h2_sky_dash_best", String(highScore));
+        }
+        gameOverReasonEl.textContent = reason;
+        finalScoreEl.textContent = Math.floor(score).toLocaleString();
+        finalDistEl.textContent = distance.toFixed(1) + " km";
+        finalBestEl.textContent = highScore.toLocaleString();
+        gameOverOverlay.classList.remove("hidden");
+        playTone(220, "sawtooth", 0.35, 0.14, 70);
+      }
+
+      // Input handling
+      function setThrust(active) {
+        player.thrusting = active;
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
+          e.preventDefault();
+          if (state === "TITLE" || state === "GAMEOVER") {
+            startGame();
+          } else {
+            setThrust(true);
+          }
+        }
+        if (e.code === "ArrowDown" || e.code === "KeyS") {
+          player.downKey = true;
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
+          setThrust(false);
+        }
+        if (e.code === "ArrowDown" || e.code === "KeyS") {
+          player.downKey = false;
+        }
+      });
+
+      canvas.addEventListener("pointerdown", () => {
+        if (state === "PLAYING") setThrust(true);
+      });
+      window.addEventListener("pointerup", () => setThrust(false));
+      window.addEventListener("pointercancel", () => setThrust(false));
+
+      startBtn.addEventListener("click", startGame);
+      restartBtn.addEventListener("click", startGame);
+
+      function spawnParticles(x, y, color, count, speedScale = 1, size = 4) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = (1 + Math.random() * 3) * speedScale;
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * spd - speed * 0.3,
+            vy: Math.sin(angle) * spd,
+            life: 1,
+            decay: 0.025 + Math.random() * 0.03,
+            color,
+            size: size * (0.6 + Math.random() * 0.8)
+          });
+        }
+      }
+
+      function updateHUD() {
+        scoreEl.textContent = Math.floor(score).toLocaleString();
+        distEl.textContent = distance.toFixed(1) + " km";
+        const pct = Math.max(0, Math.min(100, Math.round(fuel)));
+        fuelPctEl.textContent = pct + "%";
+        fuelBarEl.style.width = pct + "%";
+        fuelBarEl.classList.toggle("low", pct <= 25);
+      }
+
+      function update() {
+        frameCount++;
+
+        // Background clouds
+        for (const c of bgClouds) {
+          c.x -= c.speed * (state === "PLAYING" ? speed / 5 : 0.6);
+          if (c.x + c.w < 0) {
+            c.x = W + 20;
+            c.y = Math.random() * (H - 80) + 40;
+          }
+        }
+
+        if (state !== "PLAYING") return;
+
+        // Speed & difficulty scaling
+        const targetSpeed = 5.2 + Math.min(5.5, distance * 0.18) + (boostTimer > 0 ? 4.0 : 0);
+        speed += (targetSpeed - speed) * 0.05;
+
+        if (boostTimer > 0) boostTimer--;
+        if (shakeTimer > 0) shakeTimer--;
+
+        // Player physics
+        const gravity = 0.34;
+        const thrust = -0.68;
+        if (player.thrusting && fuel > 0) {
+          player.vy += thrust;
+        } else if (player.downKey) {
+          player.vy += gravity * 1.6;
+        } else {
+          player.vy += gravity;
+        }
+
+        player.vy = Math.max(-7.5, Math.min(7.5, player.vy));
+        player.y += player.vy;
+
+        // Clamp to screen
+        if (player.y < 26) {
+          player.y = 26;
+          player.vy = 0;
+        }
+        if (player.y > H - 26) {
+          player.y = H - 26;
+          player.vy = 0;
+        }
+
+        player.angle = player.vy * 0.055;
+
+        // Fuel consumption (slower during H2O boost)
+        const drain = (player.thrusting ? 0.11 : 0.055) * (boostTimer > 0 ? 0.3 : 1);
+        fuel = Math.max(0, fuel - drain);
+        if (fuel <= 0) {
+          endGame("H₂ 燃料切れ！");
+          return;
+        }
+
+        // Distance & passive score
+        distance += speed * 0.004;
+        score += speed * 0.15;
+
+        // Exhaust particles (clean H2O vapor!)
+        if (frameCount % 2 === 0) {
+          const exhaustColor = boostTimer > 0
+            ? (frameCount % 4 === 0 ? "#34d399" : "#67e8f9")
+            : (player.thrusting ? "#38bdf8" : "#bae6fd");
+          particles.push({
+            x: player.x - 24,
+            y: player.y + (Math.random() - 0.5) * 6,
+            vx: -speed * 0.7 - Math.random() * 1.5,
+            vy: (Math.random() - 0.5) * 0.8,
+            life: 1,
+            decay: 0.04,
+            color: exhaustColor,
+            size: boostTimer > 0 ? 6 : 4
+          });
+        }
+
+        // Spawn H2 molecules & Fuel Cell Rings
+        if (frameCount % 48 === 0) {
+          const isRing = Math.random() < 0.2;
+          items.push({
+            type: isRing ? "RING" : "H2",
+            x: W + 40,
+            y: 65 + Math.random() * (H - 130),
+            r: isRing ? 28 : 16,
+            pulse: Math.random() * Math.PI * 2
+          });
+        }
+
+        // Spawn CO2 / Thunderclouds
+        const spawnInterval = Math.max(36, Math.floor(72 - distance * 0.8));
+        if (frameCount % spawnInterval === 0) {
+          const isStorm = Math.random() < 0.3;
+          obstacles.push({
+            type: isStorm ? "STORM" : "CO2",
+            x: W + 60,
+            y: 60 + Math.random() * (H - 120),
+            r: isStorm ? 26 : 24 + Math.random() * 10,
+            vy: isStorm ? (Math.random() - 0.5) * 2.2 : 0
+          });
+        }
+
+        // Update items
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          it.x -= speed;
+          it.pulse += 0.08;
+
+          const dx = player.x - it.x;
+          const dy = player.y - it.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < player.radius + it.r) {
+            if (it.type === "H2") {
+              fuel = Math.min(100, fuel + 18);
+              score += 100;
+              spawnParticles(it.x, it.y, "#38bdf8", 12, 1.2, 4);
+              playTone(660, "sine", 0.12, 0.1, 990);
+            } else {
+              boostTimer = 150;
+              fuel = Math.min(100, fuel + 25);
+              score += 250;
+              spawnParticles(it.x, it.y, "#34d399", 18, 1.6, 5);
+              playTone(523.25, "triangle", 0.25, 0.14, 1046.5);
+            }
+            items.splice(i, 1);
+            continue;
+          }
+
+          if (it.x < -60) items.splice(i, 1);
+        }
+
+        // Update obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const ob = obstacles[i];
+          ob.x -= speed * 1.08;
+          ob.y += ob.vy;
+          if (ob.y < 50 || ob.y > H - 50) ob.vy *= -1;
+
+          const dx = player.x - ob.x;
+          const dy = player.y - ob.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < player.radius + ob.r - 6) {
+            if (boostTimer > 0) {
+              // H2O Boost smashes through CO2!
+              score += 150;
+              spawnParticles(ob.x, ob.y, "#94a3b8", 16, 1.5, 5);
+              playTone(300, "sine", 0.1, 0.1, 500);
+              obstacles.splice(i, 1);
+              continue;
+            } else {
+              shakeTimer = 18;
+              spawnParticles(player.x, player.y, "#ef4444", 22, 1.8, 5);
+              endGame("CO₂雲に衝突！");
+              return;
+            }
+          }
+
+          if (ob.x < -80) obstacles.splice(i, 1);
+        }
+
+        // Update particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= p.decay;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        updateHUD();
+      }
+
+      function drawSky() {
+        // Sky shifts slightly toward deep stratosphere as distance increases
+        const progress = Math.min(1, distance / 25);
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, progress > 0.5 ? "#040d21" : "#082047");
+        grad.addColorStop(0.55, "#0e3a6e");
+        grad.addColorStop(1, "#165c96");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Stars
+        for (const s of stars) {
+          const alpha = 0.25 + 0.35 * Math.sin(s.twinkle + frameCount * 0.03);
+          ctx.fillStyle = `rgba(224, 242, 254, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Parallax clouds
+        for (const c of bgClouds) {
+          ctx.fillStyle = `rgba(186, 230, 253, ${c.alpha})`;
+          ctx.beginPath();
+          ctx.roundRect(c.x, c.y, c.w, c.h, c.h / 2);
+          ctx.fill();
+        }
+      }
+
+      function drawPlayer() {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(player.angle);
+
+        // Boost aura
+        if (boostTimer > 0) {
+          ctx.strokeStyle = "rgba(52, 211, 153, 0.75)";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 34, 22, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Jet flame
+        const flameLen = (player.thrusting ? 22 : 12) + Math.random() * 8;
+        const flameGrad = ctx.createLinearGradient(-18, 0, -18 - flameLen, 0);
+        flameGrad.addColorStop(0, "#ffffff");
+        flameGrad.addColorStop(0.4, boostTimer > 0 ? "#34d399" : "#38bdf8");
+        flameGrad.addColorStop(1, "rgba(56, 189, 248, 0)");
+        ctx.fillStyle = flameGrad;
+        ctx.beginPath();
+        ctx.moveTo(-18, -6);
+        ctx.lineTo(-18 - flameLen, 0);
+        ctx.lineTo(-18, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Fuselage
+        ctx.fillStyle = "#f8fafc";
+        ctx.beginPath();
+        ctx.moveTo(26, 0);
+        ctx.quadraticCurveTo(10, -13, -18, -9);
+        ctx.lineTo(-22, 0);
+        ctx.lineTo(-18, 9);
+        ctx.quadraticCurveTo(10, 13, 26, 0);
+        ctx.fill();
+
+        // Wing
+        ctx.fillStyle = "#0284c7";
+        ctx.beginPath();
+        ctx.moveTo(4, -3);
+        ctx.lineTo(-14, -18);
+        ctx.lineTo(-18, -3);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cockpit
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath();
+        ctx.ellipse(8, -2, 8, 4.5, 0.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // H2 emblem
+        ctx.fillStyle = "#0f172a";
+        ctx.font = "bold 9px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("H₂", -5, 2);
+
+        ctx.restore();
+      }
+
+      function drawItems() {
+        for (const it of items) {
+          ctx.save();
+          ctx.translate(it.x, it.y);
+          const scale = 1 + Math.sin(it.pulse) * 0.08;
+          ctx.scale(scale, scale);
+
+          if (it.type === "H2") {
+            // Glow
+            ctx.fillStyle = "rgba(56, 189, 248, 0.22)";
+            ctx.beginPath();
+            ctx.arc(0, 0, it.r + 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // H2 molecule (two bonded spheres)
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath();
+            ctx.arc(-6, 0, 9, 0, Math.PI * 2);
+            ctx.arc(6, 0, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("H₂", 0, 1);
+          } else {
+            // Fuel Cell Ring
+            ctx.strokeStyle = "#34d399";
+            ctx.lineWidth = 5;
+            ctx.shadowColor = "#34d399";
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 12, it.r, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#ecfdf5";
+            ctx.font = "bold 10px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("H₂O", 0, 0);
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawObstacles() {
+        for (const ob of obstacles) {
+          ctx.save();
+          ctx.translate(ob.x, ob.y);
+
+          if (ob.type === "CO2") {
+            ctx.fillStyle = "#334155";
+            ctx.beginPath();
+            ctx.arc(0, 0, ob.r, 0, Math.PI * 2);
+            ctx.arc(-14, 5, ob.r * 0.7, 0, Math.PI * 2);
+            ctx.arc(14, 4, ob.r * 0.72, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#cbd5e1";
+            ctx.font = "bold 12px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("CO₂", 0, 2);
+          } else {
+            ctx.fillStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.arc(0, 0, ob.r, 0, Math.PI * 2);
+            ctx.arc(-15, 4, ob.r * 0.7, 0, Math.PI * 2);
+            ctx.arc(15, 4, ob.r * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Lightning bolt
+            ctx.fillStyle = "#facc15";
+            ctx.beginPath();
+            ctx.moveTo(2, -6);
+            ctx.lineTo(-6, 4);
+            ctx.lineTo(0, 4);
+            ctx.lineTo(-4, 15);
+            ctx.lineTo(7, 1);
+            ctx.lineTo(1, 1);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+      }
+
+      function drawParticles() {
+        for (const p of particles) {
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function render() {
+        ctx.save();
+        if (shakeTimer > 0) {
+          const mag = shakeTimer * 0.4;
+          ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+        }
+
+        drawSky();
+        drawParticles();
+        drawItems();
+        drawObstacles();
+        drawPlayer();
+
+        ctx.restore();
+      }
+
+      function loop() {
+        update();
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      initBackground();
+      loop();
+    })();
+  </script>
+</body>
+</html>
